@@ -786,6 +786,20 @@ Qed.
 
 End MapField.
 
+Section CommmxPoly.
+
+Lemma commmx_horner (R : comRingType) (n' : nat) (A B : 'M[R]_n'.+1)
+  (p : {poly R}) : commmx A B -> commmx A (horner_mx B p).
+Proof.
+by move=> fg; apply: commr_horner => // i; rewrite coef_map; apply/commCmx.
+Qed.
+
+Lemma horner_mxC (R : comRingType) (n' : nat) (A : 'M_n'.+1) (p q : {poly R}) :
+  GRing.comm (horner_mx A p) (horner_mx A p).
+Proof. exact/commmx_horner/commmx_sym/commmx_horner. Qed.
+
+End CommmxPoly.
+
 Section IntegralOverRing.
 
 Definition integralOver (R K : ringType) (RtoK : R -> K) (z : K) :=
