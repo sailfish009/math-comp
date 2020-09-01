@@ -580,6 +580,10 @@ Proof.
 by case/submxP=> A' ->; case/submxP=> B' ->; rewrite -mulmxDl submxMl.
 Qed.
 
+Lemma sub_rowsub m1 m2 n (f : 'I_m2 -> 'I_m1) (A : 'M_(m1, n)) :
+  (rowsub f A <= A)%MS.
+Proof. by rewrite -mul_rowsub1_mx mulmx_sub. Qed.
+
 Lemma summx_sub m1 m2 n (B : 'M_(m2, n))
                 I (r : seq I) (P : pred I) (A_ : I -> 'M_(m1, n)) :
   (forall i, P i -> A_ i <= B)%MS -> ((\sum_(i <- r | P i) A_ i)%R <= B)%MS.
@@ -596,6 +600,7 @@ Proof. by rewrite rowE submxMl. Qed.
 
 Lemma eq_row_sub m n v (A : 'M_(m, n)) i : row i A = v -> (v <= A)%MS.
 Proof. by move <-; rewrite row_sub. Qed.
+Arguments eq_row_sub [m n v A].
 
 Lemma nz_row_sub m n (A : 'M_(m, n)) : (nz_row A <= A)%MS.
 Proof. by rewrite /nz_row; case: pickP => [i|] _; rewrite ?row_sub ?sub0mx. Qed.
@@ -928,6 +933,14 @@ Lemma eqmx_cast m1 m2 n (A : 'M_(m1, n)) e :
   ((castmx e A : 'M_(m2, n)) :=: A)%MS.
 Proof. by case: e A; case: m2 / => A e; rewrite castmx_id. Qed.
 
+Lemma eqmx_row_full m1 m2 n (A : 'M_(m1, n)) e :
+  row_full (castmx e A  : 'M_(m2, n)) = row_full A.
+Proof. by rewrite /row_full eqmx_cast. Qed.
+
+Lemma eqmx_row_free m1 m2 n (A : 'M_(m1, n)) e :
+  row_free (castmx e A  : 'M_(m2, n)) = row_free A.
+Proof. by rewrite /row_free eqmx_cast; congr (_ == _); rewrite e.1. Qed.
+
 Lemma eqmx_conform m1 m2 n (A : 'M_(m1, n)) (B : 'M_(m2, n)) :
   (conform_mx A B :=: A \/ conform_mx A B :=: B)%MS.
 Proof.
@@ -941,6 +954,23 @@ Proof.
 case: (eqmx_conform <<A>>%MS A) => // eq_id_gen.
 exact: eqmx_trans (genmxE A).
 Qed.
+
+Lemma submx_rowsub (m1 m2 m3 n : nat) h
+    (f : 'I_m2 -> 'I_m1) (g : 'I_m3 -> 'I_m1) (A : 'M_(m1, n)) :
+  f =1 g \o h -> (rowsub f A <= rowsub g A)%MS.
+Proof.
+by move=> fE; apply/row_subP => i; rewrite (eq_row_sub (h i))// !row_rowsub fE.
+Qed.
+Arguments submx_rowsub [m1 m2 m3 n] h [f g A] _.
+
+Lemma eqmx_rowsub (m1 m2 n : nat) (s : 'S_m2)
+    (f : 'I_m2 -> 'I_m1) (g : 'I_m2 -> 'I_m1) (A : 'M_(m1, n)) :
+  f =1 g \o s -> (rowsub f A :=: rowsub g A)%MS.
+Proof.
+move=> fE; apply/eqmxP; rewrite (submx_rowsub s)// (submx_rowsub s^-1%g)//.
+by move=> i /=; rewrite permE fE/= f_iinv.
+Qed.
+Arguments eqmx_rowsub [m1 m2 n] s [f g A] _.
 
 Section AddsmxSub.
 
@@ -1221,6 +1251,26 @@ Proof. by apply/eqmxP; rewrite submx1/= sub_kermx mulmx0. Qed.
 Lemma mulmx_free_eq0 m n p (A : 'M_(m, n)) (B : 'M_(n, p)) :
   row_free B -> (A *m B == 0) = (A == 0).
 Proof. by rewrite -sub_kermx -kermx_eq0 => /eqP->; rewrite submx0. Qed.
+
+Lemma row_freePn m n (M : 'M[F]_(m, n)) :
+ reflect (exists i, (row i M <= row' i M)%MS) (~~ row_free M).
+Proof.
+rewrite -kermx_eq0; apply: (iffP (rowV0Pn _)) => [|[i0 /submxP[D rM]]].
+  move=> [v /sub_kermxP vM_eq0 /rV0Pn[i0 vi0_neq0]]; exists i0.
+  have := vM_eq0; rewrite mulmx_sum_row (bigD1_ord i0)//=.
+  move=> /(canRL (addrK _))/(canRL (scalerK _))->//.
+  rewrite sub0r scalerN -scaleNr scalemx_sub// summx_sub// => l _.
+  by rewrite scalemx_sub// -row_rowsub row_sub.
+exists (\row_j oapp (D 0) (- 1) (unlift i0 j)); last first.
+  by apply/rV0Pn; exists i0; rewrite !mxE unlift_none/= oppr_eq0 oner_eq0.
+apply/sub_kermxP; rewrite mulmx_sum_row (bigD1_ord i0)//= !mxE.
+rewrite unlift_none scaleN1r rM mulmx_sum_row addrC -sumrB big1 // => l _.
+by rewrite !mxE liftK row_rowsub subrr.
+Qed.
+
+Lemma negb_row_free m n (M : 'M[F]_(m, n)) :
+  ~~ row_free M = [exists i, (row i M <= row' i M)%MS].
+Proof. exact/row_freePn/existsP. Qed.
 
 Lemma mulmx0_rank_max m n p (A : 'M_(m, n)) (B : 'M_(n, p)) :
   A *m B = 0 -> \rank A + \rank B <= n.
@@ -2048,6 +2098,8 @@ Arguments mxdirect_sumsP {F I P n A_}.
 Arguments mxdirect_sumsE {F I P n S_}.
 Arguments eigenspaceP {F n g a m W}.
 Arguments eigenvalueP {F n g a}.
+Arguments submx_rowsub [F m1 m2 m3 n] h [f g A] _.
+Arguments eqmx_rowsub [F m1 m2 n] s [f g A] _.
 
 Arguments mxrank {F m%N n%N} A%MS.
 Arguments complmx {F m%N n%N} A%MS.

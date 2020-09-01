@@ -351,6 +351,11 @@ Definition col j0 A := \col_i A i j0.
 Definition row' i0 A := \matrix_(i, j) A (lift i0 i) j.
 Definition col' j0 A := \matrix_(i, j) A i (lift j0 j).
 
+(* reindexing/subindex a matrix *)
+Definition mxsub m' n' f g A := \matrix_(i < m', j < n') A (f i) (g j).
+Local Notation colsub g := (mxsub id g).
+Local Notation rowsub f := (mxsub f id).
+
 Lemma castmx_const m' n' (eq_mn : (m = m') * (n = n')) a :
   castmx eq_mn (const_mx a) = const_mx a.
 Proof. by case: eq_mn; case: m' /; case: n' /. Qed.
@@ -413,8 +418,44 @@ Lemma col_row_permC s t A :
   col_perm s (row_perm t A) = row_perm t (col_perm s A).
 Proof. by apply/matrixP=> i j; rewrite !mxE. Qed.
 
+Lemma row'E i : row' i = rowsub (lift i). Proof. by []. Qed.
+Lemma col'E i : col' i = colsub (lift i). Proof. by []. Qed.
+
+Lemma perm_mxE s : row_perm s = rowsub s.
+Proof. by rewrite /row_perm /mxsub !unlock. Qed.
+
+Lemma mxsub_id : mxsub id id =1 id.
+Proof. by move=> A; apply/matrixP => i j; rewrite !mxE. Qed.
+
+Lemma eq_mxsub m' n' f f' g g' : f =1 f' -> g =1 g' ->
+  @mxsub m' n' f g =1 @mxsub m' n' f' g'.
+Proof. by move=> eq_f eq_g A; apply/matrixP => i j; rewrite !mxE eq_f eq_g. Qed.
+
+Lemma mxsub_eq_id f g : f =1 id -> g =1 id -> mxsub f g =1 id.
+Proof. by move=> fid gid A; rewrite (eq_mxsub fid gid) mxsub_id. Qed.
+
+Lemma mxsub_eq_colsub n' f g : f =1 id -> @mxsub _ n' f g =1 colsub g.
+Proof. by move=> f_id; apply: eq_mxsub. Qed.
+
+Lemma mxsub_eq_rowsub m' f g : g =1 id -> @mxsub m' _ f g =1 rowsub f.
+Proof. exact: eq_mxsub. Qed.
+
+Lemma mxsub_ffunl m' n' f g : @mxsub m' n' (finfun f) g =1 mxsub f g.
+Proof. by apply: eq_mxsub => // i; rewrite ffunE. Qed.
+
+Lemma mxsub_ffunr m' n' f g : @mxsub m' n' f (finfun g) =1 mxsub f g.
+Proof. by apply: eq_mxsub => // i; rewrite ffunE. Qed.
+
+Lemma mxsub_ffun m' n' f g : @mxsub m' n' (finfun f) (finfun g) =1 mxsub f g.
+Proof. by move=> A; rewrite mxsub_ffunl mxsub_ffunr. Qed.
+
+Lemma mxsub_const m' n' f g a : @mxsub m' n' f g (const_mx a) = const_mx a.
+Proof. by apply/matrixP => i j; rewrite !mxE. Qed.
+
 End FixedDim.
 
+Local Notation colsub g := (mxsub id g).
+Local Notation rowsub f := (mxsub f id).
 Local Notation "A ^T" := (trmx A) : ring_scope.
 
 Lemma castmx_id m n erefl_mn (A : 'M_(m, n)) : castmx erefl_mn A = A.
@@ -523,6 +564,68 @@ Proof. by apply/matrixP=> i j; rewrite !mxE. Qed.
 
 Lemma tr_col' m n j0 (A : 'M_(m, n)) : (col' j0 A)^T = row' j0 A^T.
 Proof. by apply/matrixP=> i j; rewrite !mxE. Qed.
+
+Lemma mxsub_comp m1 m2 m3 n1 n2 n3
+  (f : 'I_m2 -> 'I_m1) (f' : 'I_m3 -> 'I_m2)
+  (g : 'I_n2 -> 'I_n1) (g' : 'I_n3 -> 'I_n2) (A : 'M_(m1, n1)) :
+  mxsub (f \o f') (g \o g') A = mxsub f' g' (mxsub f g A).
+Proof. by apply/matrixP => i j; rewrite !mxE. Qed.
+
+Lemma rowsub_comp m1 m2 m3 n
+  (f : 'I_m2 -> 'I_m1) (f' : 'I_m3 -> 'I_m2) (A : 'M_(m1, n)) :
+  rowsub (f \o f') A = rowsub f' (rowsub f A).
+Proof. exact: mxsub_comp. Qed.
+
+Lemma colsub_comp m n n2 n3
+  (g : 'I_n2 -> 'I_n) (g' : 'I_n3 -> 'I_n2) (A : 'M_(m, n)) :
+  colsub (g \o g') A = colsub g' (colsub g A).
+Proof. exact: mxsub_comp. Qed.
+
+Lemma mxsubrc m1 m2 n n2 f g (A : 'M_(m1, n)) :
+  mxsub f g A = rowsub f (colsub g A) :> 'M_(m2, n2).
+Proof. exact: mxsub_comp. Qed.
+
+Lemma mxsubcr m1 m2 n n2 f g (A : 'M_(m1, n)) :
+  mxsub f g A = colsub g (rowsub f A) :> 'M_(m2, n2).
+Proof. exact: mxsub_comp. Qed.
+
+Lemma rowsub_cast m1 m2 n (eq_m : m1 = m2) (A : 'M_(m2, n)) :
+  rowsub (cast_ord eq_m) A = castmx (esym eq_m, erefl) A.
+Proof. by case: _ / eq_m in A *; apply: (mxsub_eq_id (cast_ord_id _)). Qed.
+
+Lemma colsub_cast m n1 n2 (eq_n : n1 = n2) (A : 'M_(m, n2)) :
+  colsub (cast_ord eq_n) A = castmx (erefl, esym eq_n) A.
+Proof. by case: _ / eq_n in A *; apply: (mxsub_eq_id _ (cast_ord_id _)). Qed.
+
+Lemma mxsub_cast m1 m2 n1 n2 (eq_m : m1 = m2) (eq_n : n1 = n2) A :
+  mxsub (cast_ord eq_m) (cast_ord eq_n) A = castmx (esym eq_m, esym eq_n) A.
+Proof. by rewrite mxsubrc rowsub_cast colsub_cast castmx_comp/= etrans_id. Qed.
+
+Lemma castmxEsub m1 m2 n1 n2 (eq_mn : (m1 = m2) * (n1 = n2)) A :
+  castmx eq_mn A = mxsub (cast_ord (esym eq_mn.1)) (cast_ord (esym eq_mn.2)) A.
+Proof. by rewrite mxsub_cast !esymK; case: eq_mn. Qed.
+
+Lemma trmx_mxsub m1 m2 n1 n2 f g (A : 'M_(m1, n1)) :
+  (mxsub f g A)^T = mxsub g f A^T :> 'M_(n2, m2).
+Proof. by apply/matrixP => i j; rewrite !mxE. Qed.
+
+Lemma row_mxsub m1 m2 n1 n2
+    (f : 'I_m2 -> 'I_m1) (g : 'I_n2 -> 'I_n1) (A : 'M_(m1, n1)) i :
+  row i (mxsub f g A) = row (f i) (colsub g A).
+Proof. by apply/rowP => j; rewrite !mxE. Qed.
+
+Lemma col_mxsub m1 m2 n1 n2
+    (f : 'I_m2 -> 'I_m1) (g : 'I_n2 -> 'I_n1) (A : 'M_(m1, n1)) i :
+ col i (mxsub f g A) = col (g i) (rowsub f A).
+Proof. by apply/colP => j; rewrite !mxE. Qed.
+
+Lemma row_rowsub m1 m2 n (f : 'I_m2 -> 'I_m1) (A : 'M_(m1, n)) i :
+  row i (rowsub f A) = row (f i) A.
+Proof. by apply/rowP => j; rewrite !mxE. Qed.
+
+Lemma col_colsub m n1 n2 (g : 'I_n2 -> 'I_n1) (A : 'M_(m, n1)) i :
+  col i (colsub g A) = col (g i) A.
+Proof. by apply/colP => j; rewrite !mxE. Qed.
 
 Ltac split_mxE := apply/matrixP=> i j; do ![rewrite mxE | case: split => ?].
 
@@ -987,6 +1090,8 @@ Prenex Implicits mxvec vec_mx mxvec_indexP mxvecK vec_mxK.
 Arguments trmx_inj {R m n} [A1 A2] eqA12t : rename.
 
 Notation "A ^T" := (trmx A) : ring_scope.
+Notation colsub g := (mxsub id g).
+Notation rowsub f := (mxsub f id).
 
 (* Matrix parametricity. *)
 Section MapMatrix.
@@ -1018,6 +1123,9 @@ Lemma map_row' i0 : (row' i0 A)^f = row' i0 A^f.
 Proof. by apply/matrixP=> i j; rewrite !mxE. Qed.
 
 Lemma map_col' j0 : (col' j0 A)^f = col' j0 A^f.
+Proof. by apply/matrixP=> i j; rewrite !mxE. Qed.
+
+Lemma map_mxsub m' n' g h : (@mxsub _ _ _  m' n' g h A)^f = mxsub g h A^f.
 Proof. by apply/matrixP=> i j; rewrite !mxE. Qed.
 
 Lemma map_row_perm s : (row_perm s A)^f = row_perm s A^f.
@@ -1193,6 +1301,7 @@ Canonical row_additive m n i := SwizzleAdd (@row V m n i).
 Canonical col_additive m n j := SwizzleAdd (@col V m n j).
 Canonical row'_additive m n i := SwizzleAdd (@row' V m n i).
 Canonical col'_additive m n j := SwizzleAdd (@col' V m n j).
+Canonical mxsub_additive m n m' n' f g := SwizzleAdd (@mxsub V m n m' n' f g).
 Canonical row_perm_additive m n s := SwizzleAdd (@row_perm V m n s).
 Canonical col_perm_additive m n s := SwizzleAdd (@col_perm V m n s).
 Canonical xrow_additive m n i1 i2 := SwizzleAdd (@xrow V m n i1 i2).
@@ -1595,6 +1704,7 @@ Canonical row_linear m n i := SwizzleLin (@row R m n i).
 Canonical col_linear m n j := SwizzleLin (@col R m n j).
 Canonical row'_linear m n i := SwizzleLin (@row' R m n i).
 Canonical col'_linear m n j := SwizzleLin (@col' R m n j).
+Canonical mxsub_linear m n m' n' f g := SwizzleLin (@mxsub R m n m' n' f g).
 Canonical row_perm_linear m n s := SwizzleLin (@row_perm R m n s).
 Canonical col_perm_linear m n s := SwizzleLin (@col_perm R m n s).
 Canonical xrow_linear m n i1 i2 := SwizzleLin (@xrow R m n i1 i2).
@@ -1899,6 +2009,20 @@ Proof.
 by apply/rowP=> j; rewrite mxE summxE; apply: eq_bigr => i _; rewrite !mxE.
 Qed.
 
+Lemma mxsub_mul m n m' n' p f g (A : 'M_(m, p)) B :
+  @mxsub _ m n m' n' f g (A *m B) = rowsub f A *m colsub g B.
+Proof.
+by apply/matrixP => i j; rewrite !mxE; under [RHS]eq_bigr do rewrite !mxE.
+Qed.
+
+Lemma rowsub_mul m n m' p f (A : 'M_(m, p)) B :
+  @mxsub _ m n m' n f id (A *m B) = rowsub f A *m B.
+Proof. by rewrite mxsub_mul mxsub_id. Qed.
+
+Lemma colsub_mul m n n' p g (A : 'M_(m, p)) B :
+  @mxsub _ m n m n' id g (A *m B) = A *m colsub g B.
+Proof. by rewrite mxsub_mul mxsub_id. Qed.
+
 Lemma mul_delta_mx_cond m n p (j1 j2 : 'I_n) (i1 : 'I_m) (k2 : 'I_p) :
   delta_mx i1 j1 *m delta_mx j2 k2 = delta_mx i1 k2 *+ (j1 == j2).
 Proof.
@@ -1949,6 +2073,18 @@ Proof.
 rewrite -diag_const_mx mul_mx_diag.
 by apply/matrixP=> i j; rewrite !mxE mulr1.
 Qed.
+
+(* mulmx and rowsub *)
+
+Lemma mul_rowsub1_mx m1 m2 n (f : 'I_m2 -> 'I_m1) (A : 'M_(m1, n)) :
+  rowsub f 1%:M *m A = rowsub f A.
+Proof. by apply/row_matrixP => i; rewrite row_mul !row_rowsub row1 -rowE. Qed.
+
+Lemma mulmx_rowsub m1 m2 n p (f : 'I_m2 -> 'I_m1) (B : 'M_(m1, n)) (A : 'M_(n, p)) :
+  rowsub f B *m A = rowsub f (B *m A).
+Proof. by rewrite -mul_rowsub1_mx -mulmxA mul_rowsub1_mx. Qed.
+
+(* mulmx and col_perm, row_perm, xcol, xrow *)
 
 Lemma mul_col_perm m n p s (A : 'M_(m, n)) (B : 'M_(n, p)) :
   col_perm s A *m B = A *m row_perm s^-1 B.
@@ -2105,6 +2241,14 @@ Lemma copid_mx_id n r :
 Proof.
 by move=> le_r_n; rewrite mulmxBl mul1mx mul_pid_mx_copid // oppr0 addr0.
 Qed.
+
+Lemma rowsub_widen m n (le_mn : m <= n) :
+  rowsub (widen_ord le_mn) 1%:M = pid_mx m.
+Proof. by apply/matrixP=> i j; rewrite !mxE -!val_eqE/= ltn_ord andbT. Qed.
+
+Lemma colsub_widen m n (le_mn : m <= n) :
+  colsub (widen_ord le_mn) 1%:M = pid_mx n.
+Proof. by apply/matrixP=> i j; rewrite !mxE -!val_eqE/= ltn_ord andbT. Qed.
 
 (* Block products; we cover all 1 x 2, 2 x 1, and 2 x 2 block products. *)
 Lemma mul_mx_row m n p1 p2 (A : 'M_(m, n)) (Bl : 'M_(n, p1)) (Br : 'M_(n, p2)) :
