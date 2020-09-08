@@ -1229,7 +1229,13 @@ Lemma map_mx_id_in (R : Type) m n (M : 'M[R]_(m,n)) (f : R -> R) :
   (forall i j, f (M i j) = M i j) -> M ^ f = M.
 Proof. by rewrite -[RHS]map_mx_id -eq_in_map_mx. Qed.
 
+Lemma map_mx_eq_id (R : Type) m n (M : 'M[R]_(m,n)) (f : R -> R) :
+  f =1 id -> M ^ f = M.
+Proof. by move=> /eq_map_mx->; rewrite map_mx_id. Qed.
+
 End MultipleMapMatrix.
+Arguments eq_map_mx [R S m n M] g f.
+Arguments map_mx_eq_id [R m n M] f.
 
 (*****************************************************************************)
 (********************* Matrix Zmodule (additive) structure *******************)
