@@ -798,6 +798,13 @@ Lemma horner_mxC (R : comRingType) (n' : nat) (A : 'M_n'.+1) (p q : {poly R}) :
   GRing.comm (horner_mx A p) (horner_mx A p).
 Proof. exact/commmx_horner/commmx_sym/commmx_horner. Qed.
 
+Lemma commmx_stable_eigenspace (F : fieldType) n (f g : 'M[F]_n) a :
+  commmx f g -> stablemx (eigenspace f a) g.
+Proof.
+move=> cfg; rewrite commmx_stable_ker//.
+by apply/commmx_sym/commmxB => //; apply:commmxC.
+Qed.
+
 End CommmxPoly.
 
 Section KernelLemmas.
@@ -824,6 +831,13 @@ case: n => [|n] in g *; first by rewrite !thinmx0.
 by rewrite /kermxpoly horner_mx_X.
 Qed.
 
+Lemma commmx_stable_kermxpoly n (f g : 'M_n) (p : {poly K}) : commmx f g ->
+  stablemx (kermxpoly f p) g.
+Proof.
+case: n => [|n] in f g *; first by rewrite !thinmx0.
+move=> fg; rewrite /kermxpoly; apply: commmx_stable_ker.
+by apply/commmx_sym/commmx_horner/commmx_sym.
+Qed.
 
 Lemma kermxpoly_min n (g : 'M_n.+1) p :
   mxminpoly g %| p -> (kermxpoly g p :=: 1)%MS.
@@ -903,6 +917,17 @@ Lemma geigenspaceE n' (g : 'M_n'.+1) a :
   geigenspace g a = kermx ((g - a%:M) ^+ n'.+1).
 Proof.
 by rewrite /geigenspace /kermxpoly rmorphX rmorphB /= horner_mx_X horner_mx_C.
+Qed.
+
+Lemma commmx_stable_geigenspace n (f g : 'M_n) a : commmx f g ->
+  stablemx (geigenspace f a) g.
+Proof. exact: commmx_stable_kermxpoly. Qed.
+
+Lemma eigenspace_sub_geigen n (g : 'M_n) a :
+  (eigenspace g a <= geigenspace g a)%MS.
+Proof.
+case: n => [|n] in g *; rewrite ?thinmx0 ?sub0mx// geigenspaceE.
+by apply/sub_kermxP; rewrite exprS mulmxA mulmx_ker mul0mx.
 Qed.
 
 Lemma mxdirect_sum_geigenspace
